@@ -628,33 +628,45 @@ export default function Billing() {
     }
   };
 
-  // Sync state with local database mock
+  // Initialisation — restore JWT session state from storage
   useEffect(() => {
     setTimeout(() => {
       try {
+        // ── JWT session restore ──────────────────────────────────
+        // The ONLY valid authentication gate: a JWT in sessionStorage.
+        // All other localStorage keys are legacy/non-auth data.
         const token = sessionStorage.getItem('access_token');
         if (token) {
           setIsAuthenticated(true);
         }
 
-        const savedPin = localStorage.getItem('sbt_admin_pin');
-        if (savedPin && savedPin.length === 6) {
-          setAdminPin(savedPin);
-        }
+        // ── Purge stale plaintext PIN (legacy backdoor) ──────────
+        // sbt_admin_pin was stored by the old local-only auth system.
+        // It is no longer valid — PIN verification now happens on the
+        // backend via POST /auth/login. Remove it unconditionally so
+        // it can never be used to bypass authentication.
+        localStorage.removeItem('sbt_admin_pin');
+        // adminPin state drives UI label only ('Enter PIN' vs 'Set PIN').
+        // Default to true (non-null) so users always see 'Enter PIN'
+        // because the backend always has an admin user after seeding.
+        setAdminPin('__backend_managed__');
+
+        // ── Legacy bill data restore (read-only, not auth) ───────
         const savedBills = localStorage.getItem('sbt_bills');
         if (savedBills) {
           setBills(JSON.parse(savedBills));
         }
+
+        // ── One-time migration: localStorage companies → backend ─
         const savedCompanies = localStorage.getItem('sbt_companies_list');
         if (savedCompanies && !localStorage.getItem('sbt_migrated_v3_companies')) {
           const companies = JSON.parse(savedCompanies);
-          // Migrate old array of strings or objects to backend
           Promise.all(companies.map(async (c: any) => {
             try {
               const name = typeof c === 'string' ? mapCompanyToEnglishKey(c) : c.name;
               await api.post('/customers', { name });
-            } catch (e: any) { 
-              console.error('Migration error (companies):', e.response?.data || e.message); 
+            } catch (e: any) {
+              console.error('Migration error (companies):', e.response?.data || e.message);
             }
           })).then(() => {
             queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -662,6 +674,7 @@ export default function Billing() {
           });
         }
 
+        // ── One-time migration: localStorage works → backend ─────
         const savedWorks = localStorage.getItem('sbt_available_works');
         if (savedWorks && !localStorage.getItem('sbt_migrated_v3_works')) {
           const works = JSON.parse(savedWorks);
@@ -669,14 +682,16 @@ export default function Billing() {
             try {
               const name = typeof w === 'string' ? mapWorkToEnglishKey(w) : w.name;
               await api.post('/services', { name });
-            } catch (e: any) { 
-              console.error('Migration error (works):', e.response?.data || e.message); 
+            } catch (e: any) {
+              console.error('Migration error (works):', e.response?.data || e.message);
             }
           })).then(() => {
             queryClient.invalidateQueries({ queryKey: ['services'] });
             localStorage.setItem('sbt_migrated_v3_works', 'true');
           });
         }
+
+        // ── Gallery images (local-only feature) ──────────────────
         const savedImages = localStorage.getItem('sbt_gallery_images');
         if (savedImages) {
           setGalleryImages(JSON.parse(savedImages));
@@ -790,9 +805,18 @@ export default function Billing() {
   };
 
   const handleResetAll = () => {
-    if (confirm('Are you sure you want to reset the admin PIN and clear all billing data?')) {
-      localStorage.clear();
-      setAdminPin(null);
+    if (confirm('Are you sure you want to reset and clear all billing data?')) {
+      // Clear JWT tokens from both storages
+      sessionStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      // Clear app-specific keys only (do not nuke migration sentinels
+      // or other browser data that isn't ours)
+      localStorage.removeItem('sbt_admin_pin');
+      localStorage.removeItem('sbt_bills');
+      localStorage.removeItem('sbt_gallery_images');
+      localStorage.removeItem('sbt_companies_list');
+      localStorage.removeItem('sbt_available_works');
+      setAdminPin('__backend_managed__');
       setBills([]);
       setGalleryImages([]);
       setIsAuthenticated(false);
@@ -2618,7 +2642,13 @@ export default function Billing() {
                 type="button"
                 className={styles.secondaryBtn}
                 style={{ width: '100%', borderColor: 'var(--error)', color: 'var(--error)' }}
-                onClick={() => setIsAuthenticated(false)}
+                onClick={() => {
+                  // Full logout: clear JWT from both storages so
+                  // page reload does not silently re-authenticate.
+                  sessionStorage.removeItem('access_token');
+                  localStorage.removeItem('refresh_token');
+                  setIsAuthenticated(false);
+                }}
               >
                 🚪 {t('signOut')}
               </button>
