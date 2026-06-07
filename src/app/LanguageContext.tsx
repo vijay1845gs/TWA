@@ -171,6 +171,7 @@ const translations = {
     smsNotification: 'SMS Notification Simulator',
     smsNotificationBody: 'Your Sri Balamurugan Admin verification OTP is: ',
     otpError: 'Incorrect OTP. Please check the simulated SMS alert and try again.',
+    errorLabel: 'An error occurred. Please try again.',
   },
   ta: {
     home: 'முகப்பு',
@@ -332,6 +333,7 @@ const translations = {
     smsNotification: 'SMS அறிவிப்பு உருவகப்படுத்துதல்',
     smsNotificationBody: 'உங்கள் ஸ்ரீ பாலமுருகன் நிர்வாகி சரிபார்ப்பு OTP: ',
     otpError: 'தவறான OTP. சரிபார்ப்புக் குறியீட்டைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.',
+    errorLabel: 'பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.',
   }
 };
 

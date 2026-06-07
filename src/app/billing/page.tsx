@@ -183,7 +183,7 @@ export default function Billing() {
       if (invoiceStatusFilter) params.append('status', invoiceStatusFilter);
       if (invoiceStartDate) params.append('startDate', invoiceStartDate);
       if (invoiceEndDate) params.append('endDate', invoiceEndDate);
-      return api.get(`/bills?${params.toString()}`).then(res => res.data.data);
+      return api.get(`/bills?${params.toString()}`).then(res => res.data);
     },
     enabled: isAuthenticated
   });
@@ -207,19 +207,19 @@ export default function Billing() {
   const [customWorkInput, setCustomWorkInput] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: companiesList = [], isLoading: isLoadingCompanies } = useQuery({
+  const { data: companiesList = [], isLoading: isLoadingCompanies } = useQuery<string[]>({
     queryKey: ['customers'],
     queryFn: () => api.get('/customers?take=100').then(res => {
-      const names = res.data.data.map((c: any) => c.name);
+      const names: string[] = res.data.data.map((c: { name: string }) => c.name);
       return Array.from(new Set([...names, 'Custom Company']));
     }),
     enabled: isAuthenticated
   });
 
-  const { data: availableWorks = [], isLoading: isLoadingWorks } = useQuery({
+  const { data: availableWorks = [], isLoading: isLoadingWorks } = useQuery<string[]>({
     queryKey: ['services'],
     queryFn: () => api.get('/services').then(res => {
-      const names = res.data.data ? res.data.data.map((s: any) => s.name) : res.data.map((s: any) => s.name);
+      const names: string[] = res.data.data ? res.data.data.map((s: { name: string }) => s.name) : res.data.map((s: { name: string }) => s.name);
       return Array.from(new Set(names));
     }),
     enabled: isAuthenticated
@@ -2351,7 +2351,7 @@ export default function Billing() {
                           <td style={{ textAlign: 'center', fontWeight: '500' }}>{idx + 1}</td>
                           <td>{item.description}</td>
                           <td style={{ textAlign: 'center' }}>{qty}</td>
-                          <td style={{ textAlign: 'right' }}>{parseFloat(rate).toFixed(2)}</td>
+                          <td style={{ textAlign: 'right' }}>{parseFloat(rate ?? '0').toFixed(2)}</td>
                           <td style={{ textAlign: 'right' }}>{parseFloat(item.amount).toFixed(2)}</td>
                         </tr>
                       );
