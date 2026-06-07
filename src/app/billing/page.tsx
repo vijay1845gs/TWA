@@ -702,19 +702,19 @@ export default function Billing() {
       setError('PIN must be exactly 6 digits.');
       return;
     }
-    // Set PIN temporarily via API or just local storage for now
-    // Actually, setting PIN in backend requires an authenticated request, so we should skip setting PIN from login screen in production.
-    localStorage.setItem('sbt_admin_pin', inputPin);
-    setAdminPin(inputPin);
-    setIsAuthenticated(true);
-    setError('');
-    setInputPin('');
+    // Route ALL pin submissions through the backend login flow.
+    // Do NOT store PIN in localStorage or set isAuthenticated=true here.
+    // The JWT is only issued after PIN + OTP verification.
+    loginMutation.mutate(inputPin);
   };
 
   const loginMutation = useMutation({
     mutationFn: (pin: string) => api.post('/auth/login', { pin }),
     onSuccess: (response) => {
-      setSentOtp(response.data.data.otp); // DEV ONLY (Usually SMS sends it)
+      // In production, otp is undefined (sent via SMS).
+      // In development, otp is returned in the response body.
+      const otp: string | undefined = response.data?.data?.otp;
+      setSentOtp(otp ?? '');
       setAuthStep('otp');
       setInputOtp('');
       setError('');
@@ -723,7 +723,7 @@ export default function Billing() {
       setInputPin('');
     },
     onError: (err: any) => {
-      setError(err.response?.data?.message || 'Incorrect PIN. Please try again.');
+      setError(err.response?.data?.message?.[0] || err.response?.data?.message || 'Incorrect PIN. Please try again.');
       setInputPin('');
     }
   });
@@ -761,14 +761,16 @@ export default function Billing() {
   const resendOtpMutation = useMutation({
     mutationFn: () => api.post('/auth/request-otp', {}),
     onSuccess: (response) => {
-      setSentOtp(response.data.otp);
+      // TransformInterceptor wraps the response: { data: { otp, message, expiresIn }, timestamp }
+      const otp: string | undefined = response.data?.data?.otp;
+      setSentOtp(otp ?? '');
       setInputOtp('');
       setError('');
       setShowOtpNotification(true);
       setTimeout(() => setShowOtpNotification(false), 15000);
     },
     onError: (err: any) => {
-      setError(err.response?.data?.message || 'Failed to resend OTP.');
+      setError(err.response?.data?.message?.[0] || err.response?.data?.message || 'Failed to resend OTP.');
     }
   });
 
